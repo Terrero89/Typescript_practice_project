@@ -1,3 +1,42 @@
+class ProjectState {
+private listeners: any[] = []
+  private projects: any[] = [];
+private static instance: ProjectState
+
+private constructor() {}
+
+static getInstance(){
+  if(this.instance ){
+    return this.instance;
+
+  }
+  this.instance = new ProjectState()
+  return this.instance
+}
+
+addListener(listenerFn: Function){
+  this.listeners.push(listenerFn)
+}
+
+//property to add an object with the new project
+addProject(title:string, description:string, numOfPeople:number){
+  const newProject = {
+    id:Math.random().toString(),
+    title: title,
+    description: description,
+    people: numOfPeople,
+  }
+
+  this.projects.push(newProject);
+  for(const listenerFn of this.listeners){
+    listenerFn(this.projects.slice()) //sliced to retur a new array and not mutating the original
+  }
+
+}
+}
+
+const projectState = ProjectState.getInstance()
+
 //validation
 //?interface that validates the inputs from  the form
 interface Validatable{
@@ -31,7 +70,7 @@ isValid = isValid && validatableInput.value.length <= validatableInput.maxLength
 }
 
 //?checks for the the input is greater than min value
-if(validatableInput.min != null && typeof validatableInput.value=== 'number'){
+if(validatableInput.min != null && typeof validatableInput.value === 'number'){
   isValid = isValid && validatableInput.value >= validatableInput.min;
 }
 //?checks for the the input is less than max value
@@ -66,11 +105,14 @@ class ProjectList{
   templateElement: HTMLTemplateElement;
   hostElement: HTMLDivElement;
   element: HTMLElement;
+  assignedProjects: any[] =[];
+
  constructor(private type:'active' | 'finished') {
   this.templateElement = document.getElementById(
     'project-list'
   )! as HTMLTemplateElement;
   this.hostElement = document.getElementById('app')! as HTMLDivElement;
+  this.assignedProjects = [];
 
   const importedNode = document.importNode(
     this.templateElement.content,
@@ -78,6 +120,12 @@ class ProjectList{
   );
   this.element = importedNode.firstElementChild as HTMLElement;
   this.element.id = `${this.type}-projects`; //dynamically taking type to use it as an id
+  
+  projectState.addListener((projects:any[]) =>{
+    this.assignedProjects = projects;
+    this.renderProjects(); 
+  });//to register the changes when this is called, function with param is returned
+
   this.attach();
   this.renderContent();
  }
@@ -89,6 +137,15 @@ class ProjectList{
  }
  private attach() {
   this.hostElement.insertAdjacentElement('beforeend', this.element);
+}
+
+private renderProjects(){
+const listEl = document.getElementById( `${this.type}-projects-list`)! as HTMLElement;
+for(const prjItem of this.assignedProjects){
+ const listItem = document.createElement('li');
+ listItem.textContent = prjItem.title;
+  listEl.appendChild(listItem)
+}
 }
 }
 
@@ -170,8 +227,9 @@ return;
     const userInput = this.gatherUserInput();
     //to check if it is a  tuple
     if(Array.isArray(userInput)){
-        const [title,description,people] = userInput
-        console.log(title,description,people)
+        const [title,desc,people] = userInput;
+        projectState.addProject(title,desc,people)
+        console.log(title,desc,people)
         this.clearInput() // clearing input
     }
     // console.log(this.titleInputElement.value);
